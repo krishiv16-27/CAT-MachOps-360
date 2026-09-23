@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+*.env
+*.env.*
+!*.env.example
+
+# Node / Frontend
+node_modules/
+dist/
+.cache/
+.parcel-cache/
+.vite/
+*.local
+
+# Generated datasets (large)
+data/generated/
+data/output/
+*.parquet
+*.csv
+!data/seed/*.csv
+
+# ML models
+ml/models/*.pkl
+ml/models/*.joblib
+ml/models/*.bin
+!ml/models/.gitkeep
+
+# DB
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/settings.json
+*.swp
+
+# Secrets
+.env
+backend/.env
+frontend/.env
+*.pem
+*.key
+secrets/
+
+# Docker volumes
+pgdata/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
