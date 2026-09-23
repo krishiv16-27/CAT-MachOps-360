@@ -1,10 +1,11 @@
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Activity, ChevronDown, ChevronUp } from 'lucide-react'
+import { Activity, ChevronDown, ChevronUp, MessageSquare, AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
-import { machinesApi } from '../services/api'
+import { machinesApi, machineExtrasApi } from '../services/api'
 import PageHeader from '../components/ui/PageHeader'
 import StatusDot from '../components/ui/StatusDot'
+import ExplainThis from '../components/ui/ExplainThis'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 export default function MachineDetailPage() {
@@ -31,6 +32,23 @@ export default function MachineDetailPage() {
     refetchInterval: 15_000,
   })
 
+  const { data: machineSpeaksData } = useQuery({
+    queryKey: ['machine-speaks', id],
+    queryFn: () => machineExtrasApi.machineSpeaks(id!),
+    enabled: !!id,
+    refetchInterval: 30_000,
+  })
+
+  const { data: silentRiskData } = useQuery({
+    queryKey: ['silent-risk', id],
+    queryFn: () => machineExtrasApi.silentRisk(id!),
+    enabled: !!id,
+    refetchInterval: 30_000,
+  })
+
+  const machineSpeaks = machineSpeaksData as Record<string, unknown> | undefined
+  const silentRisk = silentRiskData as Record<string, unknown> | undefined
+
   const telemetryChartData = (telemetry ?? []).slice().reverse().map((t, i) => ({
     t: i,
     rpm: t.engine_rpm,
@@ -46,49 +64,49 @@ export default function MachineDetailPage() {
       id: 'engine', label: 'Engine', score: health?.components.engine?.score,
       fields: health ? [
         { label: 'Status', value: machine.status },
-        { label: 'RPM', value: health.components.engine?.rpm?.toFixed(0) + ' RPM' },
-        { label: 'Temperature', value: health.components.engine?.temperature_c?.toFixed(0) + '°C' },
-        { label: 'Oil Pressure', value: health.components.engine?.oil_pressure_psi?.toFixed(0) + ' PSI' },
-        { label: 'Hours', value: health.components.engine?.hours?.toFixed(0) + ' h' },
+        { label: 'RPM', value: String((health.components.engine as Record<string, unknown>)?.rpm ?? '—') + ' RPM' },
+        { label: 'Temperature', value: String((health.components.engine as Record<string, unknown>)?.temperature_c ?? '—') + '°C' },
+        { label: 'Oil Pressure', value: String((health.components.engine as Record<string, unknown>)?.oil_pressure_psi ?? '—') + ' PSI' },
+        { label: 'Hours', value: String((health.components.engine as Record<string, unknown>)?.hours ?? '—') + ' h' },
         { label: 'Faults', value: health.active_faults.length > 0 ? health.active_faults.join(', ') : 'None' },
       ] : [],
     },
     {
       id: 'fuel', label: 'Fuel', score: health?.components.fuel?.score,
       fields: health ? [
-        { label: 'Level', value: health.components.fuel?.level_pct?.toFixed(0) + '%' },
-        { label: 'Consumption Rate', value: health.components.fuel?.consumption_rate_lph?.toFixed(1) + ' L/h' },
-        { label: 'Efficiency Score', value: health.components.fuel?.efficiency_score?.toFixed(0) + '%' },
+        { label: 'Level', value: String((health.components.fuel as Record<string, unknown>)?.level_pct ?? '—') + '%' },
+        { label: 'Consumption Rate', value: String((health.components.fuel as Record<string, unknown>)?.consumption_rate_lph ?? '—') + ' L/h' },
+        { label: 'Efficiency Score', value: String((health.components.fuel as Record<string, unknown>)?.efficiency_score ?? '—') + '%' },
       ] : [],
     },
     {
       id: 'hydraulics', label: 'Hydraulics', score: health?.components.hydraulics?.score,
       fields: health ? [
-        { label: 'Pressure', value: health.components.hydraulics?.pressure_bar?.toFixed(0) + ' bar' },
-        { label: 'Temperature', value: health.components.hydraulics?.temperature_c?.toFixed(0) + '°C' },
-        { label: 'Flow', value: health.components.hydraulics?.flow_lpm?.toFixed(0) + ' L/min' },
+        { label: 'Pressure', value: String((health.components.hydraulics as Record<string, unknown>)?.pressure_bar ?? '—') + ' bar' },
+        { label: 'Temperature', value: String((health.components.hydraulics as Record<string, unknown>)?.temperature_c ?? '—') + '°C' },
+        { label: 'Flow', value: String((health.components.hydraulics as Record<string, unknown>)?.flow_lpm ?? '—') + ' L/min' },
       ] : [],
     },
     {
       id: 'electrical', label: 'Electrical', score: health?.components.electrical?.score,
       fields: health ? [
-        { label: 'Battery Voltage', value: health.components.electrical?.battery_voltage?.toFixed(1) + ' V' },
+        { label: 'Battery Voltage', value: String((health.components.electrical as Record<string, unknown>)?.battery_voltage ?? '—') + ' V' },
       ] : [],
     },
     {
       id: 'mechanical', label: 'Mechanical', score: health?.components.mechanical?.score,
       fields: health ? [
-        { label: 'Vibration', value: health.components.mechanical?.vibration_g?.toFixed(2) + ' g' },
-        { label: 'Brake Status', value: String(health.components.mechanical?.brake_status) },
-        { label: 'Track/Tire Condition', value: String(health.components.mechanical?.track_condition) },
+        { label: 'Vibration', value: String((health.components.mechanical as Record<string, unknown>)?.vibration_g ?? '—') + ' g' },
+        { label: 'Brake Status', value: String((health.components.mechanical as Record<string, unknown>)?.brake_status ?? '—') },
+        { label: 'Track/Tire Condition', value: String((health.components.mechanical as Record<string, unknown>)?.track_condition ?? '—') },
       ] : [],
     },
     {
       id: 'maintenance', label: 'Maintenance', score: health?.components.maintenance?.score,
       fields: health ? [
-        { label: 'Last Service', value: health.components.maintenance?.last_service_days_ago != null ? `${health.components.maintenance.last_service_days_ago} days ago` : '—' },
-        { label: 'Next Service', value: health.components.maintenance?.next_service_due_hours != null ? `In ${health.components.maintenance.next_service_due_hours?.toFixed(0)} hours` : '—' },
-        { label: 'Status', value: String(health.components.maintenance?.status) },
+        { label: 'Last Service', value: (health.components.maintenance as Record<string, unknown>)?.last_service_days_ago != null ? `${(health.components.maintenance as Record<string, unknown>).last_service_days_ago} days ago` : '—' },
+        { label: 'Next Service', value: (health.components.maintenance as Record<string, unknown>)?.next_service_due_hours != null ? `In ${(health.components.maintenance as Record<string, unknown>).next_service_due_hours} hours` : '—' },
+        { label: 'Status', value: String((health.components.maintenance as Record<string, unknown>)?.status ?? '—') },
         { label: 'Maintenance Risk', value: health.maintenance_risk },
       ] : [],
     },
@@ -108,15 +126,88 @@ export default function MachineDetailPage() {
               label={machine.status}
             />
             {health && (
-              <span className={`text-2xl font-bold ${health.overall_health >= 90 ? 'text-green-400' : health.overall_health >= 75 ? 'text-yellow-400' : 'text-red-400'}`}>
-                {health.overall_health.toFixed(0)}%
-              </span>
+              <div className="flex items-center gap-1">
+                <span className={`text-2xl font-bold ${health.overall_health >= 90 ? 'text-green-400' : health.overall_health >= 75 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {health.overall_health.toFixed(0)}%
+                </span>
+                <ExplainThis
+                  title="Machine Health Score"
+                  summary="Weighted composite of 6 subsystem scores. Computed from live telemetry and maintenance records."
+                  components={[
+                    { label: 'Engine', score: health.components.engine?.score, weight: 0.30, detail: 'RPM, temperature, oil pressure, fault codes' },
+                    { label: 'Hydraulics', score: health.components.hydraulics?.score, weight: 0.20, detail: 'Pressure, temperature, flow rate' },
+                    { label: 'Fuel System', score: health.components.fuel?.score, weight: 0.15, detail: 'Fuel level, consumption efficiency' },
+                    { label: 'Mechanical', score: health.components.mechanical?.score, weight: 0.15, detail: 'Vibration, brake, track condition' },
+                    { label: 'Electrical', score: health.components.electrical?.score, weight: 0.10, detail: 'Battery voltage, alternator' },
+                    { label: 'Maintenance', score: health.components.maintenance?.score, weight: 0.10, detail: 'Days since service, service overdue risk' },
+                  ]}
+                  position="left"
+                />
+              </div>
             )}
           </div>
         }
       />
 
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {/* Machine Speaks card */}
+        {machineSpeaks && (
+          <div className={`card border-l-4 ${
+            machineSpeaks.tone === 'critical' ? 'border-red-500 bg-red-900/10' :
+            machineSpeaks.tone === 'warning'  ? 'border-amber-500 bg-amber-900/10' :
+            'border-green-500 bg-green-900/10'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                machineSpeaks.tone === 'critical' ? 'bg-red-500/20' :
+                machineSpeaks.tone === 'warning' ? 'bg-amber-500/20' : 'bg-green-500/20'
+              }`}>
+                <MessageSquare size={14} className={
+                  machineSpeaks.tone === 'critical' ? 'text-red-400' :
+                  machineSpeaks.tone === 'warning' ? 'text-amber-400' : 'text-green-400'
+                } />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1 font-medium uppercase tracking-wide">
+                  {machine.machine_code} — Machine Status
+                </div>
+                <p className="text-sm text-slate-200 leading-relaxed">"{machineSpeaks.message as string}"</p>
+                <p className="text-xs text-slate-500 mt-1">Updated every 30 seconds</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Silent Risk Detection */}
+        {silentRisk && (silentRisk.risk_level as string) !== 'NONE' && (
+          <div className={`card border ${
+            (silentRisk.risk_level as string) === 'HIGH' ? 'border-red-700/50 bg-red-900/10' :
+            (silentRisk.risk_level as string) === 'MEDIUM' ? 'border-amber-700/50 bg-amber-900/10' :
+            'border-yellow-800/30'
+          }`}>
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle size={14} className={
+                (silentRisk.risk_level as string) === 'HIGH' ? 'text-red-400' : 'text-amber-400'
+              } />
+              <span className="text-sm font-semibold text-slate-300">Composite Risk Detected</span>
+              <span className={`text-xs px-2 py-0.5 rounded font-bold ${
+                (silentRisk.risk_level as string) === 'HIGH' ? 'bg-red-900/40 text-red-400' :
+                'bg-amber-900/40 text-amber-400'
+              }`}>{silentRisk.risk_level as string}</span>
+            </div>
+            <p className="text-xs text-slate-300 mb-2">{silentRisk.message as string}</p>
+            {((silentRisk.patterns as unknown[]) ?? []).map((p: unknown, i: number) => {
+              const pattern = p as Record<string, unknown>
+              return (
+                <div key={i} className="text-xs bg-slate-700/30 rounded p-2 mb-1">
+                  <span className="text-amber-300 font-medium">{pattern.label as string}</span>
+                  <span className="text-slate-400 ml-2">— {pattern.description as string}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {/* Telemetry chart */}
         {telemetryChartData.length > 0 && (
           <div className="card">

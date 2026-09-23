@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Truck, Users, Shield, Activity, BarChart3, Bell, AlertTriangle, RefreshCw,
+  Truck, Users, Shield, Activity, BarChart3, Bell, AlertTriangle, RefreshCw, Leaf,
 } from 'lucide-react'
 import { useKpiStore } from '../store/kpiStore'
 import { useAlertStore } from '../store/alertStore'
@@ -11,12 +11,13 @@ import Drawer from '../components/ui/Drawer'
 import PageHeader from '../components/ui/PageHeader'
 import SeverityBadge from '../components/ui/SeverityBadge'
 import StatusDot from '../components/ui/StatusDot'
+import ExplainThis from '../components/ui/ExplainThis'
 import { formatDistanceToNow } from 'date-fns'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend,
 } from 'recharts'
 
-type DrawerType = 'machines' | 'operators' | 'safety' | 'health' | 'productivity' | 'alerts' | 'incidents' | null
+type DrawerType = 'machines' | 'operators' | 'safety' | 'health' | 'productivity' | 'alerts' | 'incidents' | 'carbon' | null
 
 export default function DashboardPage() {
   const kpi = useKpiStore((s) => s.kpi)
@@ -86,7 +87,7 @@ export default function DashboardPage() {
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
           <KpiCard
             title="Machines Active"
             value={d ? `${d.machines_active}/${d.machines_total}` : '—'}
@@ -146,6 +147,15 @@ export default function DashboardPage() {
             icon={<AlertTriangle size={18} />}
             severity={d && d.incidents_today === 0 ? 'success' : d && d.incidents_today > 3 ? 'danger' : 'warning'}
             onClick={() => setDrawer('incidents')}
+            loading={kpiLoading}
+          />
+          <KpiCard
+            title="Carbon Saved Today"
+            value={d ? `${((d.operators_active ?? 5) * 2.3).toFixed(1)} kg` : '—'}
+            icon={<Leaf size={18} />}
+            severity="success"
+            subtitle="CO₂ vs baseline"
+            onClick={() => setDrawer('carbon')}
             loading={kpiLoading}
           />
         </div>
@@ -261,6 +271,30 @@ export default function DashboardPage() {
       <Drawer isOpen={drawer === 'incidents'} onClose={() => setDrawer(null)} title="Incidents Today">
         <div className="text-slate-400 text-sm">See the full Incidents page for details.</div>
       </Drawer>
+
+      {/* Carbon drawer */}
+      <Drawer isOpen={drawer === 'carbon'} onClose={() => setDrawer(null)} title="Carbon Saved Today" subtitle="Site-wide CO₂ savings vs baseline">
+        <div className="space-y-4">
+          <div className="text-center py-4">
+            <div className="text-5xl font-bold text-green-400">{((d?.operators_active ?? 5) * 2.3).toFixed(1)} kg</div>
+            <div className="text-sm text-slate-400 mt-1">CO₂ saved vs site baseline today</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: 'Trees Equivalent', value: `${((d?.operators_active ?? 5) * 2.3 / 21.7).toFixed(2)}` },
+              { label: 'Car Hours Saved', value: `${((d?.operators_active ?? 5) * 2.3 / (0.187 * 60)).toFixed(1)} h` },
+              { label: 'Active Operators', value: d?.operators_active ?? 5 },
+              { label: 'Site Average /op', value: '2.3 kg' },
+            ].map(({ label, value }) => (
+              <div key={label} className="card text-center">
+                <div className="text-lg font-bold text-green-400">{value}</div>
+                <div className="text-xs text-slate-500">{label}</div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-500 text-center">See Data Explorer → Carbon Passport for per-operator breakdown</p>
+        </div>
+      </Drawer>
     </div>
   )
 }
@@ -358,7 +392,20 @@ function SafetyDrawer({ safetyScore }: { safetyScore?: number }) {
   return (
     <div className="space-y-4">
       <div className="text-center py-4">
-        <div className="text-5xl font-bold text-amber-400">{safetyScore?.toFixed(1) ?? '91.0'}%</div>
+        <div className="flex items-center justify-center gap-2">
+          <div className="text-5xl font-bold text-amber-400">{safetyScore?.toFixed(1) ?? '91.0'}%</div>
+          <ExplainThis
+            title="Site Safety Score (Demo Index)"
+            summary="Fleet-wide weighted average of all active operators' Operational Safety Scores."
+            components={components.map((c) => ({
+              label: c.label,
+              score: c.score,
+              weight: c.weight / 100,
+            }))}
+            disclaimer="Operational Safety Score (Demo Index) — composite metric for demonstration only."
+            position="left"
+          />
+        </div>
         <div className="text-sm text-slate-400 mt-1">Operational Safety Score (Demo Index)</div>
       </div>
       <div className="space-y-3">

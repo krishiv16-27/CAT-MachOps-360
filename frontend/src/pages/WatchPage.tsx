@@ -2,11 +2,13 @@ import { useWatchStore } from '../store/watchStore'
 import { useAlertStore } from '../store/alertStore'
 import { useAuthStore } from '../store/authStore'
 import { useQuery } from '@tanstack/react-query'
-import { tasksApi, operatorsApi } from '../services/api'
+import { tasksApi, operatorsApi, operatorExtrasApi } from '../services/api'
 import { ChevronLeft, ChevronRight, AlertTriangle, Zap } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { format } from 'date-fns'
 import { alertsApi } from '../services/api'
+import { useState } from 'react'
+import ExplainThis from '../components/ui/ExplainThis'
 
 export default function WatchPage() {
   const { currentScreen, nextScreen, prevScreen, screens, activeAlert, clearAlert, isVibrating } = useWatchStore()
@@ -37,6 +39,9 @@ export default function WatchPage() {
 
   function renderScreen() {
     switch (currentScreen) {
+      case 'gut-check':
+        return <GutCheckScreen operatorId={operatorId ?? undefined} onComplete={() => useWatchStore.getState().setScreen('home')} />
+
       case 'home':
         return (
           <div className="flex flex-col h-full p-4 gap-3">
@@ -66,8 +71,18 @@ export default function WatchPage() {
                   </div>
                 )}
                 {currentTask.predicted_duration_minutes && (
-                  <div className="text-xs text-slate-400 mt-1">
+                  <div className="text-xs text-slate-400 mt-1 flex items-center gap-0.5">
                     ETA: <span className="text-white font-medium">~{currentTask.predicted_duration_minutes.toFixed(0)} min</span>
+                    <ExplainThis
+                      title="ETA Prediction"
+                      summary="RandomForest ML model predicts task duration from conditions."
+                      components={[
+                        { label: 'Task Type', value: currentTask.task_type },
+                        { label: 'Weather', value: currentTask.weather_condition ?? 'CLEAR' },
+                        { label: 'Terrain', value: currentTask.terrain_type ?? 'FLAT' },
+                        { label: 'Confidence', detail: '±15% typical range' },
+                      ]}
+                    />
                   </div>
                 )}
               </div>
@@ -186,7 +201,7 @@ export default function WatchPage() {
             <div className="text-xs text-amber-400 font-bold uppercase tracking-wider">Shift Summary</div>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between"><span className="text-slate-400">Shift Start</span>
-                <span className="text-white">{operator?.shift_start ? format(new Date(operator.shift_start), 'HH:mm') : '—'}</span></div>
+                <span className="text-white">{operator?.shift_status === 'ON_SHIFT' ? 'On shift' : '—'}</span></div>
               <div className="flex justify-between"><span className="text-slate-400">Operating</span>
                 <span className="text-white">{operator?.continuous_operating_minutes?.toFixed(0) ?? 0} min</span></div>
               <div className="flex justify-between"><span className="text-slate-400">Tasks Done</span>
@@ -268,17 +283,21 @@ export default function WatchPage() {
           </div>
         )
 
+      case 'my-stats':
+        return <MyStatsScreen operatorId={operatorId ?? undefined} />
+
       default:
         return <div className="p-4 text-slate-400 text-sm text-center">Screen: {currentScreen}</div>
     }
   }
 
   const SCREEN_LABELS: Record<string, string> = {
+    'gut-check': 'Gut Check',
     'home': 'Home', 'current-task': 'Task', 'task-progress': 'Progress',
     'next-task': 'Next Task', 'safety-status': 'Safety', 'active-alert': 'Alert',
     'break-recommendation': 'Break', 'machine-status': 'Machine', 'emergency': 'SOS',
     'shift-summary': 'Shift', 'todays-tasks': 'Today', 'safety-events': 'Events',
-    'qr-code': 'QR', 'training': 'Training',
+    'qr-code': 'QR', 'training': 'Training', 'my-stats': 'My Stats',
   }
 
   return (
@@ -358,6 +377,147 @@ export default function WatchPage() {
       </div>
 
       <p className="text-xs text-slate-600 mt-4">Browser vibration API active on supported devices</p>
+    </div>
+  )
+}
+
+// ── My Stats Screen ───────────────────────────────────────────────────────────
+function MyStatsScreen({ operatorId }: { operatorId: string | undefined }) {
+  const { data: carbonData } = useQuery({
+    queryKey: ['watch-carbon', operatorId],
+    queryFn: () => operatorExtrasApi.carbonPassport(operatorId!),
+    enabled: !!operatorId,
+  })
+  const { data: nearMissData } = useQuery({
+    queryKey: ['watch-near-misses', operatorId],
+    queryFn: () => operatorExtrasApi.nearMisses(operatorId!),
+    enabled: !!operatorId,
+  })
+
+  const carbon = carbonData as Record<string, unknown> | undefined
+  const nearMiss = nearMissData as Record<string, unknown> | undefined
+
+  const co2Saved = carbon ? (carbon.shift_co2_saved_kg as number) : null
+  const selfCorrected = nearMiss ? (nearMiss.self_corrected_count as number) : null
+  const carbonRating = carbon ? (carbon.carbon_rating as string) : null
+
+  return (
+    <div className="flex flex-col h-full p-4 gap-2">
+      <div className="text-xs text-amber-400 font-bold uppercase tracking-wider">My Stats</div>
+      <div className="space-y-2 text-xs">
+        <div className="bg-green-900/30 border border-green-800/50 rounded-lg p-3">
+          <div className="text-green-400 font-bold text-base">
+            {selfCorrected !== null ? selfCorrected : '—'}
+          </div>
+          <div className="text-slate-400">Hazards self-corrected this week</div>
+        </div>
+        <div className="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3">
+          <div className={`font-bold text-base ${co2Saved !== null && co2Saved > 0 ? 'text-green-400' : 'text-amber-400'}`}>
+            {co2Saved !== null ? `${co2Saved > 0 ? '+' : ''}${co2Saved.toFixed(1)} kg CO₂` : '—'}
+          </div>
+          <div className="text-slate-400">Carbon saved this shift</div>
+          {carbonRating && <div className="text-slate-500 mt-0.5">{carbonRating}</div>}
+        </div>
+        <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg p-3">
+          <div className="text-blue-400 font-bold text-base">
+            {carbon ? `${(carbon.site_rank_percentile as number)}%` : '—'}
+          </div>
+          <div className="text-slate-400">Site fuel efficiency percentile</div>
+        </div>
+        <div className="bg-slate-700/30 rounded-lg p-3">
+          <div className="text-slate-200 font-bold text-base">
+            {nearMiss ? `${(nearMiss.above_average as boolean) ? '↑ Above' : '↔ At'} avg` : '—'}
+          </div>
+          <div className="text-slate-400">Safety vs site average</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Gut Check Screen ──────────────────────────────────────────────────────────
+function GutCheckScreen({ operatorId, onComplete }: { operatorId: string | undefined; onComplete: () => void }) {
+  const [step, setStep] = useState(0)
+  const [answers, setAnswers] = useState<Record<string, boolean | null>>({})
+  const [submitted, setSubmitted] = useState(false)
+  const [readiness, setReadiness] = useState<number | null>(null)
+
+  const questions = [
+    { key: 'ready_for_shift', text: 'Ready for today\'s shift?' },
+    { key: 'feeling_well',    text: 'Feeling physically well?' },
+    { key: 'slept_enough',    text: 'Slept enough last night?' },
+  ]
+
+  async function answer(val: boolean) {
+    const q = questions[step]
+    const newAnswers = { ...answers, [q.key]: val }
+    setAnswers(newAnswers)
+
+    if (step < questions.length - 1) {
+      setStep(step + 1)
+    } else {
+      // Submit
+      if (operatorId) {
+        try {
+          const token = useAuthStore.getState().token ?? ''
+          const res = await fetch(`/api/v1/operators/${operatorId}/gut-check`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify(newAnswers),
+          })
+          const j = await res.json()
+          setReadiness(j.data?.readiness_score ?? null)
+        } catch (_) {}
+      }
+      setSubmitted(true)
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="flex flex-col h-full p-4 items-center justify-center gap-4">
+        <div className={`text-4xl font-bold ${readiness !== null && readiness >= 67 ? 'text-green-400' : 'text-amber-400'}`}>
+          {readiness ?? 100}%
+        </div>
+        <div className="text-sm font-semibold text-slate-200">Readiness Score</div>
+        <p className="text-xs text-slate-400 text-center">
+          {readiness !== null && readiness < 67
+            ? 'Your supervisor has been notified for awareness. No action required.'
+            : 'Have a safe shift!'}
+        </p>
+        <p className="text-xs text-slate-600 text-center">Responses are voluntary and used only to support your wellbeing.</p>
+        <button onClick={onComplete} className="mt-2 px-4 py-2 bg-amber-500 text-slate-900 rounded-xl text-xs font-bold" aria-label="Proceed to home screen">
+          Start Shift
+        </button>
+      </div>
+    )
+  }
+
+  const q = questions[step]
+  return (
+    <div className="flex flex-col h-full p-4 gap-4">
+      <div className="text-xs text-amber-400 font-bold uppercase tracking-wider">Pre-Shift Check-In</div>
+      <div className="text-xs text-slate-500">Question {step + 1} of {questions.length}</div>
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-base font-semibold text-white text-center leading-relaxed">{q.text}</p>
+      </div>
+      <p className="text-xs text-slate-500 text-center">Responses are voluntary and used only to support your wellbeing.</p>
+      <div className="flex gap-3">
+        <button
+          onClick={() => answer(true)}
+          className="flex-1 py-3 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-500 transition-colors"
+          aria-label="Answer yes"
+        >
+          Yes
+        </button>
+        <button
+          onClick={() => answer(false)}
+          className="flex-1 py-3 bg-slate-600 text-white rounded-xl text-sm font-bold hover:bg-slate-500 transition-colors"
+          aria-label="Answer not sure"
+        >
+          Not sure
+        </button>
+      </div>
     </div>
   )
 }

@@ -161,3 +161,36 @@ export const copilotApi = {
   history: () => get<Record<string, unknown>[]>('/copilot/history'),
   clearHistory: () => request<Record<string, unknown>>('DELETE', '/copilot/history'),
 }
+
+// ── New Phase C/D endpoints ───────────────────────────────────────────────────
+export const operatorExtrasApi = {
+  shiftNarrative: (id: string) =>
+    get<Record<string, unknown>>(`/operators/${id}/shift-narrative`),
+  carbonPassport: (id: string) =>
+    get<Record<string, unknown>>(`/operators/${id}/carbon-passport`),
+  nearMisses: (id: string, days = 7) =>
+    get<Record<string, unknown>>(`/operators/${id}/near-misses?days=${days}`),
+  gutCheckToday: (id: string) =>
+    get<Record<string, unknown>>(`/operators/${id}/gut-check/today`),
+  submitGutCheck: (id: string, body: Record<string, boolean | null>) =>
+    post<Record<string, unknown>>(`/operators/${id}/gut-check`, body),
+}
+
+export const machineExtrasApi = {
+  silentRisk: (id: string) =>
+    get<Record<string, unknown>>(`/machines/${id}/silent-risk`),
+  machineSpeaks: (id: string) =>
+    get<Record<string, unknown>>(`/machines/${id}/machine-speaks`),
+}
+
+export const compatibilityApi = {
+  score: (operatorId: string, machineId: string, taskType?: string) =>
+    get<Record<string, unknown>>(
+      `/compatibility?operator_id=${operatorId}&machine_id=${machineId}${taskType ? `&task_type=${taskType}` : ''}`
+    ),
+}
+
+export const sitemapApi = {
+  get: () => get<Record<string, unknown>>('/sitemap'),
+  simulateApproach: () => post<Record<string, unknown>>('/sitemap/simulate-approach', {}),
+}

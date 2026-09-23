@@ -2,16 +2,16 @@ import { create } from 'zustand'
 import type { Alert } from '../types'
 
 export type WatchScreen =
-  | 'home' | 'current-task' | 'task-progress' | 'next-task'
+  | 'gut-check' | 'home' | 'current-task' | 'task-progress' | 'next-task'
   | 'safety-status' | 'active-alert' | 'break-recommendation'
   | 'machine-status' | 'emergency' | 'shift-summary'
-  | 'todays-tasks' | 'safety-events' | 'qr-code' | 'training'
+  | 'todays-tasks' | 'safety-events' | 'qr-code' | 'training' | 'my-stats'
 
 const SCREENS: WatchScreen[] = [
-  'home', 'current-task', 'task-progress', 'next-task',
+  'gut-check', 'home', 'current-task', 'task-progress', 'next-task',
   'safety-status', 'active-alert', 'break-recommendation',
   'machine-status', 'emergency', 'shift-summary',
-  'todays-tasks', 'safety-events', 'qr-code', 'training',
+  'todays-tasks', 'safety-events', 'qr-code', 'training', 'my-stats',
 ]
 
 interface WatchState {

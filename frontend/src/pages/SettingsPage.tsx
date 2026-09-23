@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Settings, Zap, RotateCcw, Play } from 'lucide-react'
-import { simulatorApi } from '../services/api'
+import { Settings, Zap, RotateCcw, Play, FlaskConical } from 'lucide-react'
+import { simulatorApi, mlApi } from '../services/api'
 import PageHeader from '../components/ui/PageHeader'
 
 const SCENARIOS = [
@@ -98,6 +98,15 @@ export default function SettingsPage() {
           )}
         </div>
 
+        {/* What-If Simulator */}
+        <div className="card">
+          <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2 mb-4">
+            <FlaskConical size={16} className="text-amber-400" />
+            What-If Simulator
+          </h2>
+          <WhatIfSimulator />
+        </div>
+
         {/* System info */}
         <div className="card">
           <h2 className="text-sm font-semibold text-slate-300 mb-3">System Information</h2>
@@ -117,6 +126,141 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── What-If Simulator ─────────────────────────────────────────────────────────
+function WhatIfSimulator() {
+  const [weather, setWeather] = useState('CLEAR')
+  const [operatorSkill, setOperatorSkill] = useState('3')
+  const [load, setLoad] = useState('70')
+  const [result, setResult] = useState<Record<string, unknown> | null>(null)
+  const [running, setRunning] = useState(false)
+
+  async function estimate() {
+    setRunning(true)
+    try {
+      const baseFeatures = {
+        task_type: 'EXCAVATION',
+        machine_type: 'EXCAVATOR',
+        operator_skill_level: parseInt(operatorSkill),
+        weather_condition: weather,
+        terrain_type: 'FLAT',
+        machine_load_percent: parseInt(load),
+        target_quantity: 200,
+        machine_age_years: 3,
+        operator_experience_years: 6,
+        temperature_celsius: weather === 'HEAVY_RAIN' ? 16 : 24,
+        rainfall_mm: weather === 'HEAVY_RAIN' ? 25 : weather === 'RAIN' ? 10 : 0,
+        wind_speed_kmh: 12,
+      }
+      const baseRes = await mlApi.predictEta({ ...baseFeatures, weather_condition: 'CLEAR', machine_load_percent: 70, operator_skill_level: 3 })
+      const whatifRes = await mlApi.predictEta(baseFeatures)
+
+      const etaChange = whatifRes.predicted_minutes - baseRes.predicted_minutes
+      const etaChangePct = (etaChange / baseRes.predicted_minutes) * 100
+
+      // Fuel change estimate
+      const loadFactor = parseInt(load) / 70
+      const weatherFuelFactor = weather === 'HEAVY_RAIN' ? 1.18 : weather === 'RAIN' ? 1.10 : weather === 'FOG' ? 1.05 : 1.0
+      const fuelChange = ((loadFactor * weatherFuelFactor) - 1) * 100
+
+      // Risk change
+      const riskChange = weather === 'HEAVY_RAIN' ? '+35%' : weather === 'RAIN' ? '+18%' :
+        parseInt(load) > 85 ? '+25%' : parseInt(operatorSkill) < 2 ? '+20%' : 'Minimal'
+
+      setResult({
+        baseline_eta: `${baseRes.predicted_minutes.toFixed(0)} min`,
+        whatif_eta: `${whatifRes.predicted_minutes.toFixed(0)} min`,
+        eta_change: `${etaChange > 0 ? '+' : ''}${etaChange.toFixed(0)} min (${etaChangePct > 0 ? '+' : ''}${etaChangePct.toFixed(0)}%)`,
+        fuel_change: `${fuelChange > 0 ? '+' : ''}${fuelChange.toFixed(0)}%`,
+        estimated_risk_change: riskChange,
+        scenario_summary: `Weather: ${weather} | Load: ${load}% | Skill Level: ${operatorSkill}/5`,
+      })
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-slate-400">Estimate the impact of changing conditions on task ETA, fuel consumption, and risk.</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block" htmlFor="whatif-weather">Weather condition</label>
+          <select
+            id="whatif-weather"
+            value={weather}
+            onChange={(e) => setWeather(e.target.value)}
+            className="w-full bg-slate-700 text-slate-200 text-sm px-3 py-2 rounded border border-slate-600 focus:outline-none focus:border-amber-500"
+            aria-label="Select weather condition"
+          >
+            {['CLEAR', 'CLOUDY', 'FOG', 'RAIN', 'HEAVY_RAIN'].map((w) => (
+              <option key={w} value={w}>{w.replace('_', ' ')}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block" htmlFor="whatif-skill">Operator skill level</label>
+          <select
+            id="whatif-skill"
+            value={operatorSkill}
+            onChange={(e) => setOperatorSkill(e.target.value)}
+            className="w-full bg-slate-700 text-slate-200 text-sm px-3 py-2 rounded border border-slate-600 focus:outline-none focus:border-amber-500"
+            aria-label="Select operator skill level"
+          >
+            {[1, 2, 3, 4, 5].map((s) => <option key={s} value={s}>Level {s} {s === 5 ? '(Expert)' : s === 1 ? '(Novice)' : ''}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block" htmlFor="whatif-load">Machine load (%)</label>
+          <select
+            id="whatif-load"
+            value={load}
+            onChange={(e) => setLoad(e.target.value)}
+            className="w-full bg-slate-700 text-slate-200 text-sm px-3 py-2 rounded border border-slate-600 focus:outline-none focus:border-amber-500"
+            aria-label="Select machine load percentage"
+          >
+            {['40', '60', '70', '80', '90', '100'].map((l) => <option key={l} value={l}>{l}%</option>)}
+          </select>
+        </div>
+      </div>
+
+      <button
+        onClick={estimate}
+        disabled={running}
+        className="btn-primary text-sm flex items-center gap-2 disabled:opacity-50"
+        aria-label="Estimate impact of what-if scenario"
+      >
+        <FlaskConical size={14} />
+        {running ? 'Estimating…' : 'Estimate Impact'}
+      </button>
+
+      {result && (
+        <div className="bg-slate-700/40 rounded-xl p-4 space-y-3">
+          <p className="text-xs text-amber-400 font-semibold">Scenario: {result.scenario_summary as string}</p>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'ETA Change', value: result.eta_change as string, color: (result.eta_change as string).startsWith('+') ? 'text-red-400' : 'text-green-400' },
+              { label: 'Fuel Change', value: result.fuel_change as string, color: (result.fuel_change as string).startsWith('+') ? 'text-red-400' : 'text-green-400' },
+              { label: 'Risk Change', value: result.estimated_risk_change as string, color: result.estimated_risk_change !== 'Minimal' ? 'text-amber-400' : 'text-green-400' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-slate-800 rounded-lg p-3 text-center">
+                <div className={`text-lg font-bold ${color}`}>{value}</div>
+                <div className="text-xs text-slate-500">{label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="text-xs text-slate-500 flex justify-between">
+            <span>Baseline ETA: {result.baseline_eta as string}</span>
+            <span>What-if ETA: {result.whatif_eta as string}</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

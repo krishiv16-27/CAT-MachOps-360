@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Truck, Users, ClipboardList, Bell,
   AlertTriangle, GraduationCap, BarChart3, Watch,
   ShieldCheck, Camera, MessageSquare, Settings, LogOut, Zap,
+  MapPin, Database,
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { useAlertStore } from '../../store/alertStore'
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { path: '/dashboard', label: 'Command Center', icon: LayoutDashboard, roles: ['engineer', 'supervisor', 'admin', 'safety_officer', 'maintenance_engineer'] },
   { path: '/operator', label: 'My Dashboard', icon: LayoutDashboard, roles: ['operator'] },
   { path: '/watch', label: 'Watch', icon: Watch, roles: ['operator', 'engineer', 'admin'] },
+  { path: '/sitemap', label: 'Live Site Map', icon: MapPin, roles: ['engineer', 'supervisor', 'admin', 'safety_officer'] },
   { path: '/machines', label: 'Machines', icon: Truck, roles: ['engineer', 'supervisor', 'admin', 'maintenance_engineer'] },
   { path: '/operators', label: 'Operators', icon: Users, roles: ['engineer', 'supervisor', 'admin', 'safety_officer'] },
   { path: '/tasks', label: 'Tasks', icon: ClipboardList, roles: ['engineer', 'supervisor', 'admin', 'operator'] },
@@ -25,6 +27,7 @@ const NAV_ITEMS = [
   { path: '/dashcam', label: 'Dashcam', icon: Camera, roles: ['engineer', 'supervisor', 'admin', 'safety_officer'] },
   { path: '/training', label: 'Training', icon: GraduationCap, roles: ['operator', 'engineer', 'supervisor', 'admin', 'safety_officer'] },
   { path: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['engineer', 'supervisor', 'admin'] },
+  { path: '/data-explorer', label: 'Data Explorer', icon: Database, roles: ['engineer', 'admin', 'supervisor', 'safety_officer'] },
   { path: '/copilot', label: 'AI Copilot', icon: MessageSquare, roles: ['engineer', 'admin'] },
   { path: '/settings', label: 'Settings', icon: Settings, roles: ['engineer', 'admin', 'supervisor'] },
 ]

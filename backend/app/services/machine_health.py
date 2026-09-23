@@ -146,7 +146,11 @@ async def compute_machine_health(machine_id: str, db: AsyncSession) -> MachineHe
     last_service_days = None
     next_service_remaining = None
     if last_maint:
-        days = (datetime.now(timezone.utc) - last_maint.performed_at).days
+        # Ensure both datetimes are timezone-aware for subtraction
+        performed = last_maint.performed_at
+        if performed.tzinfo is None:
+            performed = performed.replace(tzinfo=timezone.utc)
+        days = (datetime.now(timezone.utc) - performed).days
         last_service_days = days
         if last_maint.next_service_hours and machine.engine_hours:
             next_service_remaining = last_maint.next_service_hours - machine.engine_hours

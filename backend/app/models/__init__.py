@@ -11,6 +11,7 @@ from .safety import (
     DashcamEvent, AuditLog,
 )
 from .training import TrainingModule, OperatorTraining, TrainingRecommendation
+from .operator_extras import NearMissEvent, GutCheckResponse
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "PrestartCheck", "MachinePermission",
     "DashcamEvent", "AuditLog",
     "TrainingModule", "OperatorTraining", "TrainingRecommendation",
+    "NearMissEvent", "GutCheckResponse",
 ]

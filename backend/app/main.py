@@ -46,6 +46,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"ML models not loaded: {e}")
 
+    # Generate CSV datasets if not present
+    try:
+        from pathlib import Path
+        csv_dir = Path(__file__).parent.parent.parent / "data" / "generated"
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        if not (csv_dir / "operators_profile.csv").exists():
+            import importlib.util
+            gen_path = csv_dir.parent / "generators" / "csv_generator.py"
+            spec = importlib.util.spec_from_file_location("csv_generator", gen_path)
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            mod.write_csvs(csv_dir, seed=42)
+            logger.info("CSV datasets generated.")
+    except Exception as e:
+        logger.warning(f"CSV generation skipped: {e}")
+
     logger.info(f"Server ready. ENV={settings.app_env} DB={'SQLite' if settings.use_sqlite else 'PostgreSQL'}")
     yield
 
@@ -93,6 +109,12 @@ try:
     app.include_router(copilot.router, prefix="/api/v1/copilot", tags=["copilot"])
 except ImportError:
     logger.info("Copilot router not available yet.")
+
+# Phase A/B/C new routers
+from .routers import data_explorer, sitemap, compatibility
+app.include_router(data_explorer.router, prefix="/api/v1/data-explorer", tags=["data-explorer"])
+app.include_router(sitemap.router,       prefix="/api/v1/sitemap",       tags=["sitemap"])
+app.include_router(compatibility.router, prefix="/api/v1/compatibility", tags=["compatibility"])
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

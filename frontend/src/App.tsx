@@ -21,6 +21,8 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import CopilotPage from './pages/CopilotPage'
 import SettingsPage from './pages/SettingsPage'
 import OperatorDashboardPage from './pages/OperatorDashboardPage'
+import SiteMapPage from './pages/SiteMapPage'
+import DataExplorerPage from './pages/DataExplorerPage'
 
 export default function App() {
   const { isAuthenticated, user } = useAuthStore()
@@ -55,6 +57,10 @@ export default function App() {
             {/* Operator-specific */}
             <Route path="/operator" element={<OperatorDashboardPage />} />
             <Route path="/watch" element={<WatchPage />} />
+
+            {/* Phase B/E new pages */}
+            <Route path="/sitemap" element={<SiteMapPage />} />
+            <Route path="/data-explorer" element={<DataExplorerPage />} />
 
             {/* Default redirect */}
             <Route path="/" element={
