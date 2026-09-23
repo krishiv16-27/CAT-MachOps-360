@@ -1,6 +1,6 @@
 """Machine, MachineModel, MachineFault, and Maintenance models."""
 from datetime import datetime, date
-from sqlalchemy import String, Integer, Float, Boolean, DateTime, Date, Text, JSON
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, Date, Text, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..core.database import Base
 from .base_mixin import TimestampMixin, new_uuid

@@ -1,6 +1,6 @@
 """Task, TaskAssignment, and TaskEvent models."""
 from datetime import datetime
-from sqlalchemy import String, Float, Boolean, DateTime, Text, Integer, JSON
+from sqlalchemy import String, Float, Boolean, DateTime, Text, Integer, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..core.database import Base
 from .base_mixin import TimestampMixin, new_uuid
