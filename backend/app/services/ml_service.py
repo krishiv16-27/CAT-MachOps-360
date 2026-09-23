@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 class MLService:
     def __init__(self):
         self.eta_model = None
+        self.eta_metadata = {}
         self.anomaly_model = None
+        self.anomaly_scaler = None
+        self.anomaly_metadata = {}
         self.feature_encoder = None
 
     def load_models(self):
@@ -21,14 +24,20 @@ class MLService:
             import joblib
             eta_path = settings.eta_model_path
             if os.path.exists(eta_path):
-                self.eta_model = joblib.load(eta_path)
+                bundle = joblib.load(eta_path)
+                # Support both raw model and {model, metadata} bundle
+                self.eta_model = bundle.get("model", bundle) if isinstance(bundle, dict) else bundle
+                self.eta_metadata = bundle.get("metadata", {}) if isinstance(bundle, dict) else {}
                 logger.info(f"ETA model loaded from {eta_path}")
             else:
                 logger.warning(f"ETA model not found at {eta_path} — using mock predictions")
 
             anomaly_path = settings.anomaly_model_path
             if os.path.exists(anomaly_path):
-                self.anomaly_model = joblib.load(anomaly_path)
+                bundle = joblib.load(anomaly_path)
+                self.anomaly_model = bundle.get("model", bundle) if isinstance(bundle, dict) else bundle
+                self.anomaly_scaler = bundle.get("scaler", None) if isinstance(bundle, dict) else None
+                self.anomaly_metadata = bundle.get("metadata", {}) if isinstance(bundle, dict) else {}
                 logger.info(f"Anomaly model loaded from {anomaly_path}")
             else:
                 logger.warning(f"Anomaly model not found at {anomaly_path} — using mock predictions")
@@ -103,7 +112,11 @@ class MLService:
             if len(rows) < 5:
                 return self._mock_anomaly(operator_id)
             features = self._encode_anomaly_features(rows)
-            score = self.anomaly_model.decision_function([features])[0]
+            X = [features]
+            if self.anomaly_scaler is not None:
+                import numpy as np
+                X = self.anomaly_scaler.transform(np.array(X))
+            score = self.anomaly_model.decision_function(X)[0]
             label = "UNUSUAL" if score < 0 else "NORMAL"
             reason = self._anomaly_reason(rows) if label == "UNUSUAL" else "Operating within normal parameters."
             return {"score": round(float(score), 4), "label": label, "reason": reason}
